@@ -59,12 +59,18 @@ pub fn quote(d: &Device, t: Transaction, accessories: u32, fees: u32) -> Result<
         Transaction::Add | Transaction::AddPort => required.saturating_sub(2000),
         _ => required,
     };
-    let total = phone
+    let subtotal = phone
         .checked_add(plan)
         .and_then(|v| v.checked_add(accessories))
+        .ok_or("Quote too large")?;
+    // 8.25%, rounded half-up to the nearest cent; use u64 to avoid overflow.
+    let tax =
+        u32::try_from((u64::from(subtotal) * 825 + 5000) / 10000).map_err(|_| "Quote too large")?;
+    let total = subtotal
+        .checked_add(tax)
         .and_then(|v| v.checked_add(fees))
         .ok_or("Quote too large")?;
-    Ok(format!("Phone: {}\r\nRequired plan: {} / month\r\nPlan charged today: {}\r\nAccessories: {}\r\nTax / activation / other fees entered: {}\r\n\r\nESTIMATED TODAY: {}\r\n\r\n{}\r\n{}",money(phone),money(required),money(plan),money(accessories),money(fees),money(total),if t==Transaction::Upgrade {"Upgrade: plan excluded. Verify customer promo eligibility in Elevate / e-pay."} else if d.months>1 {"Two-month plan requirement: quote includes FIRST month only. Confirm collection and eligibility in promo deck."} else {"Confirm promo eligibility before sale. Taxes and fees are manual."},d.notes))
+    Ok(format!("Phone: {}\r\nRequired plan: {} / month\r\nPlan charged today: {}\r\nAccessories: {}\r\nSubtotal before tax: {}\r\nTax (8.25%): {}\r\nActivation / other fees (added after tax): {}\r\n\r\nESTIMATED TODAY: {}\r\n\r\n{}\r\n{}",money(phone),money(required),money(plan),money(accessories),money(subtotal),money(tax),money(fees),money(total),if t==Transaction::Upgrade {"Upgrade: plan excluded. Verify customer promo eligibility in Elevate / e-pay."} else if d.months>1 {"Two-month plan requirement: quote includes FIRST month only. Confirm collection and eligibility in promo deck."} else {"Confirm promo eligibility before sale. Tax calculated at 8.25%; other fees are manual."},d.notes))
 }
 pub fn read_csv(text: &str) -> Result<Vec<Device>, String> {
     let devices: Vec<Device> = csv::Reader::from_reader(text.as_bytes())
@@ -103,13 +109,27 @@ mod tests {
     fn rules() {
         assert!(quote(&d(), Transaction::Upgrade, 1000, 0)
             .unwrap()
-            .contains("$159.99"));
+            .contains("ESTIMATED TODAY: $173.19"));
         assert!(quote(&d(), Transaction::Add, 1000, 0)
             .unwrap()
-            .contains("$89.99"));
+            .contains("ESTIMATED TODAY: $97.41"));
         assert!(quote(&d(), Transaction::New, 0, 0)
             .unwrap()
-            .contains("$99.99"));
+            .contains("ESTIMATED TODAY: $108.24"));
+    }
+    #[test]
+    fn tax_rounding_fees_and_overflow() {
+        let q = quote(&d(), Transaction::Upgrade, 1000, 500).unwrap();
+        assert!(q.contains("Tax (8.25%): $13.20"));
+        assert!(q.contains("ESTIMATED TODAY: $178.19"));
+        let mut device = d();
+        device.upgrade = 200;
+        assert!(quote(&device, Transaction::Upgrade, 0, 0)
+            .unwrap()
+            .contains("Tax (8.25%): $0.17"));
+        assert!(quote(&d(), Transaction::New, u32::MAX, 0).is_err());
+        device.upgrade = u32::MAX;
+        assert!(quote(&device, Transaction::Upgrade, 0, 0).is_err());
     }
     #[test]
     fn amounts() {
@@ -124,7 +144,7 @@ mod tests {
         d.months = 2;
         assert!(quote(&d, Transaction::AddPort, 0, 0)
             .unwrap()
-            .contains("ESTIMATED TODAY: $40.00"));
+            .contains("ESTIMATED TODAY: $43.30"));
     }
 }
 /// Imports the primary phone table only. Other sections use different schemas.

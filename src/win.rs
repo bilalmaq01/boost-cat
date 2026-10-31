@@ -437,7 +437,7 @@ pub fn run() {
         control(
             panel,
             "STATIC",
-            "Tax + activation + other fees ($)",
+            "Activation + other fees ($)",
             285,
             174,
             265,
