@@ -13,7 +13,7 @@ Download the [portable Windows ZIP](downloads/BoostCat-Windows.zip), extract it,
 - Add a line: phone + max(required plan − $20, $0) + accessories + manually entered fees.
 - For the three two-month AAL promotions in the sample, port-in uses the port offer; new-number uses the non-port offer, as stated in the notes.
 - Two-month promotions show a reminder. Today’s estimate includes **one month**. Confirm whether both months must be collected using the promo deck before sale.
-- Accessories is the combined dollar amount for accessories being sold. Enter tax, activation and other charges in the separate fees field. Tax is not calculated automatically.
+- Accessories is the combined dollar amount for accessories being sold. Tax is calculated automatically at **8.25%** after adding phone, charged plan and accessories: **subtotal × 1.0825**, rounded to the nearest cent. Activation and other manually entered fees are added after tax.
 - All amounts use integer cents. Customer details are not collected.
 
 ## Hot sheets
